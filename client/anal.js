@@ -1,9 +1,11 @@
 
 const PORT = 8888;
+
+const activeListeners = {};
+
 const socket = new WebSocket(`ws://localhost:${PORT}`);
 socket.onopen = () => {
-  console.log('connected');
-  //socket.send("hello!");
+  console.log('anal connected');
   socket.send(JSON.stringify({
     type: 'init', payload: {
       url: window.location.href,
@@ -30,22 +32,55 @@ socket.onmessage = (event) => {
       break;
     case 'subscribe':
       const eventType = message.payload;
-      console.log(`subscribing to ${eventType} events`);
-      document.addEventListener(eventType, e => {
+      if (activeListeners[eventType]) {
+        console.log(`Already subscribed to event=${eventType}`);
+        return;
+      }
+      console.log(`subscribing to event=${eventType}`);
+      const handler = e => {
         const eventMessage = {
           type: 'event',
           payload: {
             event: eventType,
-            x: e.clientX,
-            y: e.clientY,
-            target: e.target.tagName
-          }
+            //TODO: event related data
+            // x: e.clientX,
+            // y: e.clientY,
+            // target: e.target.tagName
+          },
         };
         socket.send(JSON.stringify(eventMessage));
-      });
+      };
+      activeListeners[eventType] = handler;
+      document.addEventListener(eventType, handler);
+      /*
+            console.log(`subscribing to ${eventType} events`);
+            document.addEventListener(eventType, e => {
+              const eventMessage = {
+                type: 'event',
+                payload: {
+                  event: eventType,
+                  x: e.clientX,
+                  y: e.clientY,
+                  target: e.target.tagName
+                }
+              };
+              socket.send(JSON.stringify(eventMessage));
+            });
+            */
+      break;
+    case 'unsubscribe':
+      const eventTypeToUnsub = message.payload;
+      const listener = activeListeners[eventTypeToUnsub];
+      if (listener) {
+        console.log(`Unsubscribing from event=${eventTypeToUnsub}`);
+        document.removeEventListener(eventTypeToUnsub, listener);
+        delete activeListeners[eventTypeToUnsub];
+      } else {
+        console.log(`Not currently subscribed to event=${eventTypeToUnsub}`);
+      }
       break;
     default:
-      console.log('unknown message type:', message.type);
+      console.log(`Unknown message type=${message.type}`);
   }
 };
 socket.onclose = () => {
