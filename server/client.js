@@ -9,9 +9,6 @@ class Client {
     this.agent = initPayload.agent;
     this.connectionTime = new Date();
   }
-  getInfo() {
-    return `id=${this.id} ip=${this.ip} url=${this.url}`;
-  }
   send(type, payload) {
     if (this.ws.readyState !== this.ws.constructor.OPEN) {
       console.error(`Cannot send data to client=${this.id}, not connected`);

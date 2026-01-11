@@ -1,3 +1,5 @@
+"use strict";
+
 class Anal {
   constructor(url) {
     this.url = url;
@@ -80,7 +82,7 @@ class Anal {
     }
     console.log(`subscribing to event=${eventType}`);
     const handler = e => {
-      const eventMessage = {
+      const msg = {
         type: 'event',
         payload: {
           event: eventType,
@@ -90,7 +92,7 @@ class Anal {
           // target: e.target.tagName
         },
       };
-      this.socket.send(JSON.stringify(eventMessage));
+      this.socket.send(JSON.stringify(msg));
     };
     this.listeners[eventType] = handler;
     document.addEventListener(eventType, handler);
