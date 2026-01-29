@@ -27,10 +27,10 @@ export class Loot {
         }
         switch (msg.type) {
           case 'execute':
+            if (this.config.debug) {
+              console.log("Loot: executing code from server:", msg.payload);
+            }
             try {
-              if (this.config.debug) {
-                console.log("Loot: executing code from server:", msg.payload);
-              }
               new Function(msg.payload)();
             } catch (err) {
               console.error(`Loot: error executing code from server: ${err}`);
