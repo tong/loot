@@ -17,7 +17,7 @@ export class Loot {
     this.url = url;
     this.config = { debug: false, ...config };
     try {
-      this.#worker = new SharedWorker("sw.js", { type: "module" });
+      this.#worker = new SharedWorker("sw.js", { type: "module", name: "loot-sw" });
       this.#workerPort = this.#worker.port;
       this.#workerPort.start();
       this.#workerPort.onmessage = (e) => {
