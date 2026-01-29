@@ -1,111 +1,123 @@
 "use strict";
 
-class Anal {
-  constructor(url) {
+export class Anal {
+  static #instance;
+  #worker;
+  #workerPort;
+  #userOnMessageHandler = () => { };
+
+  constructor(url, config = {}) {
+    if (Anal.#instance) {
+      if (Anal.#instance.config.debug) {
+        console.warn("Anal: Singleton instance already exists. Returning existing instance.");
+      }
+      return Anal.#instance;
+    }
     this.url = url;
-    this.listeners = {};
-    this.socket = null;
-    this.connect();
-  }
-  connect() {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      console.warn(`socket already connected`);
-      return;
-    }
-    this.socket = new WebSocket(this.url);
-    this.socket.onopen = this._onOpen.bind(this);
-    this.socket.onmessage = this._onMessage.bind(this);
-    this.socket.onclose = this._onClose.bind(this);
-    this.socket.onerror = this._onError.bind(this);
-  }
-  disconnect() {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      this.socket.close();
-      for (const eventType in this.listeners) {
-        if (this.listeners.hasOwnProperty(eventType)) {
-          document.removeEventListener(eventType, this.listeners[eventType]);
-          delete this.listeners[eventType];
-        }
-      }
-    } else {
-      console.warn(`not connected`);
-    }
-  }
-  _onOpen() {
-    console.info('anal connected');
-    this.socket.send(JSON.stringify({
-      type: 'init',
-      payload: {
-        url: window.location.href,
-        agent: navigator.userAgent,
-        screen: {
-          width: window.screen.width,
-          height: window.screen.height
-        },
-        referrer: document.referrer
-      }
-    }));
-  }
-  _onMessage(event) {
-    const msg = JSON.parse(event.data);
-    switch (msg.type) {
-      case "execute":
-        this._handleExecute(msg.payload);
-        break;
-      case "subscribe":
-        this._handleSubscribe(msg.payload);
-        break;
-      case "unsubscribe":
-        this._handleUnsubscribe(msg.payload);
-        break;
-      default:
-        console.warn(`Unknown message type ${msg.type}`);
-    }
-  }
-  _onClose() {
-    console.info('anal disconnected');
-  }
-  _onError(error) {
-    console.error(error);
-  }
-  _handleExecute(code) {
+    this.config = { debug: false, ...config };
+
     try {
-      eval(code);
-    } catch (e) {
-      console.error("error executing payload:", e);
-    }
-  }
-  _handleSubscribe(eventType) {
-    if (this.listeners[eventType]) {
-      console.log(`Already subscribed to event=${eventType}`);
-      return;
-    }
-    console.log(`subscribing to event=${eventType}`);
-    const handler = e => {
-      const msg = {
-        type: 'event',
-        payload: {
-          event: eventType,
-          //TODO: event related data
-          // x: e.clientX,
-          // y: e.clientY,
-          // target: e.target.tagName
-        },
+      this.#worker = new SharedWorker("sw.js", { type: "module" });
+      this.#workerPort = this.#worker.port;
+      this.#workerPort.start();
+      this.#workerPort.onmessage = (e) => {
+        const msg = e.data;
+        if (this.config.debug) {
+          console.log("Anal: Received message from worker:", msg);
+        }
+        if (msg.type === 'execute') {
+          try {
+            if (this.config.debug) {
+              console.log("Anal: Executing code from server:", msg.payload);
+            }
+            eval(msg.payload);
+          } catch (err) {
+            console.error('Anal: Error executing code from server:', err);
+          }
+        }
+        this.#userOnMessageHandler(e);
       };
-      this.socket.send(JSON.stringify(msg));
-    };
-    this.listeners[eventType] = handler;
-    document.addEventListener(eventType, handler);
+      this.#workerPort.onmessageerror = (e) => {
+        console.error("Anal: Message error from worker:", e);
+      };
+    } catch (e) {
+      console.error("Anal: Failed to initialize SharedWorker:", e);
+      throw new Error("SharedWorker is not supported or enabled in this browser.");
+    }
+
+    Anal.#instance = this;
   }
-  _handleUnsubscribe(eventType) {
-    const listener = this.listeners[eventType];
-    if (listener) {
-      console.log(`Unsubscribing from event=${eventType}`);
-      document.removeEventListener(eventType, listener);
-      delete this.listeners[eventType];
+
+  async connect() {
+    return new Promise((resolve, reject) => {
+      const originalOnMessage = this.#workerPort.onmessage;
+      const originalOnMessageError = this.#workerPort.onmessageerror;
+      const cleanup = () => {
+        this.#workerPort.onmessage = originalOnMessage;
+        this.#workerPort.onmessageerror = originalOnMessageError;
+      };
+      this.#workerPort.onmessage = (e) => {
+        if (e.data.type === "connected") {
+          if (this.config.debug) {
+            console.log("Anal: Connection to worker established.");
+          }
+          cleanup();
+          resolve();
+        } else if (e.data.type === "error") {
+          console.error("Anal: Connection error from worker:", e.data.error);
+          cleanup();
+          reject(new Error(e.data.error));
+        } else if (originalOnMessage) {
+          originalOnMessage(e);
+        }
+      };
+      this.#workerPort.onmessageerror = (e) => {
+        console.error("Anal: Message error during connect:", e);
+        cleanup();
+        reject(new Error("Shared worker message error during connect."));
+      };
+      const initPayload = {
+        url: window.location.href,
+        agent: navigator.userAgent
+      };
+      this.#workerPort.postMessage({ type: "connect", url: this.url, config: this.config, initPayload });
+    });
+  }
+
+  shutdown() {
+    if (this.#workerPort) {
+      this.#workerPort.postMessage({ type: "shutdown" });
+      if (this.config.debug) {
+        console.log("Anal: Shutdown message sent to worker.");
+      }
     } else {
-      console.log(`Not currently subscribed to event=${eventType}`);
+      if (this.config.debug) {
+        console.warn("Anal: Not connected to a shared worker.");
+      }
+    }
+  }
+
+  send(data) {
+    if (this.#workerPort) {
+      this.#workerPort.postMessage({ type: "send", data: data });
+    } else {
+      console.error("Anal: Cannot send data: Shared Worker port not available.");
+    }
+  }
+
+  onMessage(callback) {
+    if (typeof callback === 'function') {
+      this.#userOnMessageHandler = callback;
+    } else if (this.config.debug) {
+      console.warn("Anal: onMessage callback must be a function.");
+    }
+  }
+
+  onMessageError(callback) {
+    if (this.#workerPort) {
+      this.#workerPort.onmessageerror = callback;
+    } else if (this.config.debug) {
+      console.warn("Anal: Worker port not initialized. Cannot set onMessageError handler.");
     }
   }
 }
-window.Anal = Anal;
