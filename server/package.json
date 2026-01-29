@@ -1,7 +1,7 @@
 {
-  "name": "anal",
-  "version": "1.0.0",
-  "description": "Realtime analytics",
+  "name": "loot",
+  "version": "0.1.0",
+  "description": "Realtime analytics and remote control",
   "main": "index.js",
   "type": "module",
   "scripts": {

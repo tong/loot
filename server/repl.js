@@ -43,7 +43,7 @@ function startRepl(clients) {
     input: process.stdin,
     output: process.stdout,
     historySize: 100,
-    prompt: "ANAL > ",
+    prompt: "LOOT > ",
   });
   rl.prompt();
   rl.on("line", (line) => {
@@ -126,16 +126,16 @@ function startRepl(clients) {
         break;
       case "help":
       case "h":
-        log.log('  clients       - List all connected clients');
-        log.log('  execute <id|all> <js>  - Run js code on client(s)');
-        log.log('  subscribe <id|all> <eventType> - Subscribe client(s) to a event');
-        log.log('  unsubscribe <id|all> <eventType> - Unsubscribe client(s) from event');
+        console.log(`  clients       - List all connected clients
+  execute <id|all> <js>  - Run js code on client(s)
+  subscribe <id|all> <event> - Subscribe client(s) to a event');
+  unsubscribe <id|all> <event> - Unsubscribe client(s) from event`);
         break;
       case "exit":
       case "quit":
         process.exit(0);
       default:
-        log.log(`Unknown command [${command}] target=${target} payload=${payload}`);
+        log.warn(`Unknown command [${command}] target=${target} payload=${payload}`);
     }
     rl.prompt();
   }).on("close", () => {
