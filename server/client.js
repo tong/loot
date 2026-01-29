@@ -1,5 +1,7 @@
 "use strict";
 
+import { log } from './log.js';
+
 class Client {
   constructor(id, ws, ip, initPayload) {
     this.id = id
@@ -11,7 +13,7 @@ class Client {
   }
   send(type, payload) {
     if (this.ws.readyState !== this.ws.constructor.OPEN) {
-      console.error(`Cannot send data to client=${this.id}, not connected`);
+      log.error(`Cannot send data to client=${this.id}, not connected`);
       return;
     }
     const msg = { type, payload };

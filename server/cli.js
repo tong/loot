@@ -2,10 +2,7 @@
 
 import process from 'process';
 
-const config = {
-  host: "0.0.0.0",
-  port: 8888
-};
+const config = { host: "0.0.0.0", port: 8888 };
 
 process.argv.forEach((arg, index) => {
   if (arg === "--host" && process.argv[index + 1]) {

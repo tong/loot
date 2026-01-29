@@ -2,6 +2,7 @@
 
 import process from 'process';
 import * as readline from 'readline';
+import { log } from './log.js';
 import Client from './client.js';
 
 /*
@@ -11,12 +12,12 @@ function getTargets(target, clients) {
   } else {
     const clientId = parseInt(target, 10);
     if (isNaN(clientId)) {
-      console.warn(`Invalid target id`);
+      log.warn(`Invalid target id`);
       return [];
     }
     const client = clients.get(clientId);
     if (!client) {
-      console.warn(`client=${clientId} not found`);
+      log.warn(`client=${clientId} not found`);
       return [];
     }
     return [client];
@@ -26,12 +27,12 @@ function getTargets(target, clients) {
 function getTarget(id, clients) {
   const clientId = parseInt(id, 10);
   if (isNaN(clientId)) {
-    console.warn(`Invalid client id`);
+    log.warn(`Invalid client id`);
     return null;
   }
   const client = clients.get(clientId);
   if (!client) {
-    console.warn(`client=${clientId} not found`);
+    log.warn(`client=${clientId} not found`);
     return null;
   }
   return client;
@@ -54,13 +55,14 @@ function startRepl(clients) {
     const parts = input.split(/\s+/);
     const command = parts[0];
     const target = parts[1];
+    const payload = parts.slice(2).join(' ');
     switch (command) {
       case "clients":
         if (clients.size === 0) {
-          console.info("0 clients connected");
+          log.info("0 clients connected");
         } else {
           for (const client of clients.values()) {
-            console.info(`${client.id} ${client.url} ${client.ip}`);
+            log.info(`${client.id} ${client.url} ${client.ip}`);
           }
         }
         break;
@@ -69,7 +71,7 @@ function startRepl(clients) {
         {
           const eventType = parts[2];
           if (!target || !eventType) {
-            console.warn("Usage: subscribe <id|all> <event>");
+            log.warn("Usage: subscribe <id|all> <event>");
             break;
           }
           if (target === "all") {
@@ -77,7 +79,7 @@ function startRepl(clients) {
           } else {
             const client = getTarget(target, clients);
             if (client) {
-              console.info(`Subscribing client=${client.id}:event:${eventType}`);
+              log.info(`Subscribing client=${client.id}:event:${eventType}`);
               client.send('subscribe', eventType);
             }
           }
@@ -88,16 +90,16 @@ function startRepl(clients) {
         {
           const eventType = parts[2];
           if (!target || !eventType) {
-            console.warn("Usage: unsubscribe <id|all> <event>");
+            log.warn("Usage: unsubscribe <id|all> <event>");
             break;
           }
           if (target === "all") {
-            // console.info(`Unsubscribing ALL from event=${eventType}`);
+            // log.info(`Unsubscribing ALL from event=${eventType}`);
             Client.broadcast(clients, "unsubscribe", eventType);
           } else {
             const client = getTarget(target, clients);
             if (client) {
-              console.info(`Unsubscribing client=${client.id}:event=${eventType}`);
+              log.info(`Unsubscribing client=${client.id}:event=${eventType}`);
               client.send('unsubscribe', eventType);
             }
           }
@@ -106,18 +108,17 @@ function startRepl(clients) {
       case "execute":
       case "exe":
         {
-          const payload = parts.slice(2).join(' ');
           if (!target || !payload) {
-            console.warn("Usage: execute <id|all> <js>");
+            log.warn("Usage: execute <id|all> <js>");
             break;
           }
           if (target === "all") {
-            console.info(`Executing on ALL clients: ${payload}`);
+            log.info(`Executing on ALL clients: ${payload}`);
             Client.broadcast(clients, 'execute', payload);
           } else {
             const client = getTarget(target, clients);
             if (client) {
-              console.info(`Executing client=${client.id}:code=${payload}`);
+              log.info(`Executing client=${client.id}:code=${payload}`);
               client.send('execute', payload);
             }
           }
@@ -125,20 +126,20 @@ function startRepl(clients) {
         break;
       case "help":
       case "h":
-        console.log('  clients       - List all connected clients');
-        console.log('  execute <id|all> <js>  - Run js code on client(s)');
-        console.log('  subscribe <id|all> <eventType> - Subscribe client(s) to a event');
-        console.log('  unsubscribe <id|all> <eventType> - Unsubscribe client(s) from event');
+        log.log('  clients       - List all connected clients');
+        log.log('  execute <id|all> <js>  - Run js code on client(s)');
+        log.log('  subscribe <id|all> <eventType> - Subscribe client(s) to a event');
+        log.log('  unsubscribe <id|all> <eventType> - Unsubscribe client(s) from event');
         break;
       case "exit":
       case "quit":
         process.exit(0);
       default:
-        console.log(`Unknown command [${command}] target=${target} payload=${payload}`);
+        log.log(`Unknown command [${command}] target=${target} payload=${payload}`);
     }
     rl.prompt();
   }).on("close", () => {
-    console.log("Exiting REPL");
+    log.log("Exiting REPL");
     process.exit(0);
   });
 }
