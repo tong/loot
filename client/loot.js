@@ -162,7 +162,7 @@ export class Loot {
     if (this.#workerPort) {
       this.#workerPort.onmessageerror = callback;
     } else if (this.config.debug) {
-      console.warn("Loot: worker port not initialized. Cannot set onMessageError handler.");
+      console.warn("Loot: worker port not initialized.");
     }
   }
 }

@@ -5,25 +5,6 @@ import * as readline from 'readline';
 import { log } from './log.js';
 import Client from './client.js';
 
-/*
-function getTargets(target, clients) {
-  if (target === "all") {
-    return [...clients.values()];
-  } else {
-    const clientId = parseInt(target, 10);
-    if (isNaN(clientId)) {
-      log.warn(`Invalid target id`);
-      return [];
-    }
-    const client = clients.get(clientId);
-    if (!client) {
-      log.warn(`client=${clientId} not found`);
-      return [];
-    }
-    return [client];
-  }
-}
-*/
 function getTarget(id, clients) {
   const clientId = parseInt(id, 10);
   if (isNaN(clientId)) {
@@ -89,18 +70,29 @@ function startRepl(clients) {
       case "unsub":
         {
           const eventType = parts[2];
-          if (!target || !eventType) {
-            log.warn("Usage: unsubscribe <id|all> <event>");
+          if (!target) {
+            log.info(`Unsubscribing ALL clients from ALL events`);
+            Client.broadcast(clients, "unsubscribe");
             break;
           }
           if (target === "all") {
-            // log.info(`Unsubscribing ALL from event=${eventType}`);
-            Client.broadcast(clients, "unsubscribe", eventType);
+            if (eventType) {
+              log.info(`Unsubscribing ALL from event=${eventType}`);
+              Client.broadcast(clients, "unsubscribe", eventType);
+            } else {
+              log.info(`Unsubscribing ALL clients from ALL events`);
+              Client.broadcast(clients, "unsubscribe");
+            }
           } else {
             const client = getTarget(target, clients);
             if (client) {
-              log.info(`Unsubscribing client=${client.id}:event=${eventType}`);
-              client.send('unsubscribe', eventType);
+              if (eventType) {
+                log.info(`Unsubscribing client=${client.id}:event=${eventType}`);
+                client.send('unsubscribe', eventType);
+              } else {
+                log.info(`Unsubscribing client=${client.id} from ALL events`);
+                client.send('unsubscribe');
+              }
             }
           }
         }
@@ -128,8 +120,8 @@ function startRepl(clients) {
       case "h":
         console.log(`  clients       - List all connected clients
   execute <id|all> <js>  - Run js code on client(s)
-  subscribe <id|all> <event> - Subscribe client(s) to a event');
-  unsubscribe <id|all> <event> - Unsubscribe client(s) from event`);
+  subscribe <id|all> <event> - Subscribe client(s) to an event
+  unsubscribe [id|all] [event] - Unsubscribe client(s) from event(s)`);
         break;
       case "exit":
       case "quit":
