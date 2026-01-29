@@ -9,7 +9,7 @@ let storedInitPayload = null;
 
 const KEEP_ALIVE_INTERVAL_MS = 30 * 1000;
 let keepAliveId = setInterval(() => {
-  console.log(`SharedWorker: Keep-alive ping (${new Date().toLocaleTimeString()}). Active clients: ${ports.size}. WebSocket state: ${socket ? socket.readyState : 'null'}`);
+  console.log(`SW: keep-alive ping (${new Date().toLocaleTimeString()}). clients: ${ports.size}. ws state: ${socket ? socket.readyState : 'null'}`);
 }, KEEP_ALIVE_INTERVAL_MS);
 
 
@@ -38,7 +38,7 @@ function openSocket(url) {
     sendToPorts({ type: "connected", url: wsUrl });
     if (storedInitPayload) {
       socket.send(JSON.stringify({ type: 'init', payload: storedInitPayload }));
-      console.log('SharedWorker: Sent "init" message to server with payload:', storedInitPayload);
+      console.log(`SW: sent "init" with payload: ${storedInitPayload}`);
       storedInitPayload = null;
     }
   };
@@ -47,17 +47,17 @@ function openSocket(url) {
     try {
       parsedMessage = JSON.parse(event.data);
     } catch (e) {
-      console.error('SharedWorker: Failed to parse WebSocket message:', e, event.data);
-      sendToPorts({ type: "error", error: `Invalid WebSocket message format: ${event.data}` });
+      console.error(`SW: failed to parse ws message: ${e}, ${event.data}`);
+      sendToPorts({ type: "error", error: `invalid ws message: ${event.data}` });
       return;
     }
-    console.log('SharedWorker: Message received from server:', parsedMessage);
+    console.log(`SW: message received from server: ${parsedMessage}`);
     sendToPorts(parsedMessage);
   };
   socket.onclose = (event) => {
     isConnected = false;
     isConnecting = false;
-    sendToPorts({ type: "error", error: `WebSocket closed: ${event.code}` });
+    sendToPorts({ type: "error", error: `ws closed: ${event.code}` });
   };
   socket.onerror = (error) => {
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
@@ -68,7 +68,7 @@ function openSocket(url) {
 
 function closeSocket() {
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-    socket.close(1000, "Worker requested websocket close");
+    socket.close(1000, "SW requested websocket close");
   }
   socket = null;
   wsUrl = null;
@@ -83,7 +83,7 @@ onconnect = (event) => {
   if (isConnected) {
     sendToPort(port, { type: "connected", url: wsUrl });
   } else if (isConnecting) {
-    sendToPort(port, { type: "message", payload: "WebSocket is currently connecting..." });
+    sendToPort(port, { type: "message", payload: "ws is currently connecting..." });
   }
   port.onmessage = (e) => {
     const msg = e.data;
@@ -95,7 +95,7 @@ onconnect = (event) => {
         if (isConnected) {
           sendToPort(port, { type: "connected", url: wsUrl });
         } else if (isConnecting) {
-          sendToPort(port, { type: "message", payload: "WebSocket is currently connecting..." });
+          sendToPort(port, { type: "message", payload: "ws is currently connecting..." });
         } else {
           openSocket(msg.url);
         }
@@ -107,7 +107,7 @@ onconnect = (event) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(msg.data);
         } else {
-          sendToPort(port, { type: "error", error: "WebSocket not open to send data." });
+          sendToPort(port, { type: "error", error: "ws not open to send data" });
         }
         break;
       default:
@@ -118,7 +118,6 @@ onconnect = (event) => {
     ports.delete(port);
   };
   port.onmessageerror = (error) => {
-    console.error(`SharedWorker: Port message error:`, error);
+    console.error(`SW: port message error: ${error}`);
   };
 }
-
